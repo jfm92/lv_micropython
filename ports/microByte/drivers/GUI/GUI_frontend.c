@@ -79,25 +79,30 @@ void GUI_frontend_ctrl_available(bool _ctrl_available){
 
 }
 
+void GUI_add_interact_group(lv_obj_t * _lv_obj){
+    lv_group_add_obj(group_interact, _lv_obj);
+}
+
 static bool user_input_task(lv_indev_drv_t * indev_drv, lv_indev_data_t * data){
     if(ctrl_available){
-       /* uint16_t inputs_value =  input_read();
+        uint16_t inputs_value =  input_read();
 
         if(!((inputs_value >> 0) & 0x01)){
             //Down BTN
+            printf("down\r\n");
             uint32_t actual_time= xTaskGetTickCount()/portTICK_PERIOD_MS;
 
             if((actual_time-btn_down_time)>2){
             data->state = LV_INDEV_STATE_PR;
-            data->key = LV_KEY_PREV;
+            data->key = LV_KEY_ENTER;
 
             // Save the actual time to calculate the bounce time.
             btn_down_time = actual_time;
             }
-        }*/
+        }
 
     }
-    return true;
+    return false;
 }
 
 

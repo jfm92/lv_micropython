@@ -163,3 +163,4 @@ void display_HAL_set_windows(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1)
 #include "freertos/task.h"
 #include "freertos/queue.h"
 QueueHandle_t vidQueue;
+QueueHandle_t horizontalQueue;

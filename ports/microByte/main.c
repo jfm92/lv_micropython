@@ -122,10 +122,10 @@ soft_reset:
     // initialise peripherals
     machine_pins_init();
 
-    //input_init();
+    input_init();
     display_HAL_init();
     display_HAL_change_endian();
-    GUI_init();
+    //GUI_init();
 
     // run boot-up scripts
     pyexec_frozen_module("_boot.py");

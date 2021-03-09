@@ -53,10 +53,12 @@ static void task(void *arg);
  **********************/
 
 // Display HAL basic functions.
-
+uint16_t * buffer_secondary;
 bool display_HAL_init(void){
     vidQueue = xQueueCreate(7, sizeof(uint16_t *));
+    horizontalQueue = xQueueCreate(7, sizeof(uint8_t));
     xTaskCreatePinnedToCore(&task, "videoTask", 1024 * 4, NULL, 1, NULL, 1);
+    buffer_secondary = (st7789_color_t *)heap_caps_malloc(display.buffer_size * 2 * sizeof(st7789_color_t), MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
     return ST7789_init(&display);
 }
 
@@ -66,10 +68,11 @@ void display_HAL_clear(){
 
 // Boot Screen Functions
 uint16_t * display_HAL_get_buffer(){
-    return display.current_buffer;
+    return buffer_secondary;
 }
 
 size_t display_HAL_get_buffer_size(){
+
     return display.buffer_size;
 }
 
@@ -114,7 +117,7 @@ void display_HAL_print(uint16_t *buffer, size_t size){
     // The boot animation to the buffer
    // display.current_buffer = buffer;
 
-    //memcpy(display.current_buffer,buffer,size);
+    memcpy(display.current_buffer,buffer,size*2);
     display.buffer_size = size;
   
     
@@ -125,13 +128,17 @@ void display_HAL_print(uint16_t *buffer, size_t size){
 
 static void task(void *arg){
     uint16_t *param;
-
+    uint8_t horizonta;
+    int y = 0;
     while(1){
         xQueuePeek(vidQueue, &param, portMAX_DELAY);
-  
-        memcpy(display.current_buffer,param,240*20);
-        display_HAL_print(param,240*20);
+        xQueuePeek(horizontalQueue, &horizonta, portMAX_DELAY);
+        memcpy(display.current_buffer,param,240*20); //240*20
+         display.buffer_size = 240*10;
+         display_HAL_set_windows(0,240,(horizonta-9),horizonta+9);
 
+        ST7789_swap_buffers(&display);
+        xQueueReceive(horizontalQueue, &horizonta, portMAX_DELAY);
         xQueueReceive(vidQueue, &param, portMAX_DELAY);
     }
 }

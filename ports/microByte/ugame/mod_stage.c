@@ -164,16 +164,7 @@ uint16_t get_layer_pixel(layer_obj_t *layer, int16_t x, uint16_t y) {
         pixel >>= 4;
     }
 
-    // Convert to 16-bit color using the palette.
-    //uint16_t color = layer->palette[pixel << 1] | layer->palette[(pixel << 1) + 1] << 8 ;
-    uint8_t blue = (layer->palette[pixel << 1] & 0b11111000);
-    uint8_t red = (layer->palette[(pixel << 1) + 1] & 0b11111000);
-    uint8_t green = (layer->palette[(pixel << 1) + 1] & 0b000000111) << 3  | (layer->palette[pixel << 1] & 0b00000111);
-    uint16_t out = green << 8;
-    out = out + ((red) << 3);
-    out = out + ((blue) >> 3);
-
-    return out;
+    return layer->palette[pixel << 1] | layer->palette[(pixel << 1) + 1] << 8 ;;
 }
 
 
@@ -313,19 +304,26 @@ const mp_obj_type_t mp_type_layer = {
 extern mp_obj_type_t mp_type_layer;
 #endif
 
+inline uint16_t color_ajust(uint16_t color){
+
+    uint16_t blue = ((color) & 0b0000000011111000);
+    uint16_t red =  ((color) & 0b0001111100000000);
+    uint16_t green =  (((color) & 0b1110000000000111));
+    //return red<<5 | blue >>11;
+    if(color != TRANSPARENT) return red>>5 | blue << 5 | green;
+    return color;
+    
+}
+
 inline
 void render_stage(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
         mp_obj_t *layers, size_t layers_size,
         uint16_t *buffer, size_t buffer_size,
         /*mp_obj_t spi,*/ uint8_t scale) {
 
-    // TODO(deshipu): Do a collision check of each layer with the
-    // rectangle, and only process the layers that overlap with it.
-
-    //mp_obj_base_t *s = (mp_obj_base_t*)MP_OBJ_TO_PTR(spi);
-    //mp_machine_spi_p_t *spi_p = (mp_machine_spi_p_t*)s->type->protocol;
     size_t index = 0;
-    for (uint16_t y = 0; y < 240; ++y) {
+    //uint16_t * aux_buffer = display_HAL_get_buffer();
+    for (uint16_t y = y0; y < y1; ++y) {
             for (uint16_t x = 0; x < 240; ++x) {
                 uint16_t c = TRANSPARENT;
                 for (size_t layer = 0; layer < layers_size; ++layer) {
@@ -339,16 +337,15 @@ void render_stage(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
                         break;
                     }
                 }
-                    buffer[index] = c ;
+                    buffer[index] = color_ajust(c);
                     index += 1;
                     // The buffer is full, send it.
                     if (index >= buffer_size) {
-                        /*spi_p->transfer(s, buffer_size * 2,
-                                        (const uint8_t*)buffer, NULL);*/
-                       display_HAL_set_windows(x0,x1,(y-19),y);
-                       //display_HAL_set_windows(x0,x1,y0,y1);
-                        //vTaskDelay(1500 / portTICK_RATE_MS);
+                      // display_HAL_set_windows(x0,x1,(y-9),y+9);
                         xQueueSend(vidQueue, &buffer, 0);
+                        xQueueSend(horizontalQueue, &y, 0);
+                       // memcpy(aux_buffer,buffer,240*20); //240*20
+                       // display_HAL_print(buffer,240*10); //240*10
                         index = 0;
 
                     }
@@ -357,18 +354,10 @@ void render_stage(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
     }
     // Send the remaining data.
     if (index) {
-        //spi_p->transfer(s, index * 2, (const uint8_t*)buffer, NULL);
-        /*printf("Index %i x0 %i y0 %i x1 %i y1 %i\r\n",index,x0,y0,x1,y1);
-        for(int i=0;i<512;i++){
-            buf_aux[i]=0xffff;
-        }
-        for(int i=y0;i<y1-y0;i++){
-            display_HAL_set_windows(x0,x1,i,i+1);
-            display_HAL_print(buffer, index*2);
-        }*/
-
-        display_HAL_set_windows(x0,x1,y0,y1);
+        printf("x0 %i x1 %i y0 %i y1 %i\r\n",x0,x1,y0,y1);
+        uint16_t y = y0 ;
         xQueueSend(vidQueue, &buffer, 0);
+        xQueueSend(horizontalQueue, &y, 0);
         
     }
 }
@@ -388,21 +377,11 @@ STATIC mp_obj_t stage_render(size_t n_args, const mp_obj_t *args) {
     mp_fun_table.mp_obj_get_array(args[4], &layers_size, &layers);
 #endif
 
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(args[5], &bufinfo, MP_BUFFER_WRITE);
-    uint16_t *buffer = bufinfo.buf;
-    size_t buffer_size = bufinfo.len / 2; // 16-bit indexing
+    uint16_t *buffer = display_HAL_get_buffer();
+    size_t buffer_size = 240*20 / 2; // 16-bit indexing
 
-    /*mp_obj_t spi = args[6];
-    // TODO: Make sure it's an SPI object.
-    const mp_obj_type_t *type = mp_obj_get_type(spi);
-    if (type->protocol == NULL) {
-         mp_raise_ValueError(MP_ERROR_TEXT("SPI protocol required"));
-    }*/
     uint8_t scale = 1;
-    if (n_args >= 8) {
-        scale = mp_obj_get_int(args[7]);
-    }
+
 
     render_stage(x0, y0, x1, y1, layers, layers_size,
                  buffer, buffer_size, /*spi,*/ scale);
