@@ -1,330 +1,140 @@
-# Micropython + lvgl
+# microPython for microByte
 
-![Build lv_micropython unix port](https://github.com/lvgl/lv_micropython/workflows/Build%20lv_micropython%20unix%20port/badge.svg)
-![Build lv_micropython stm32 port](https://github.com/lvgl/lv_micropython/workflows/Build%20lv_micropython%20stm32%20port/badge.svg)
 
-**For information abound Micropython lvgl bindings please refrer to [lv_bindings/README.md](https://github.com/littlevgl/lv_bindings/blob/master/README.md)**
+This repository is a fork of microPython + LVGL repository. You can find the next improvments on this repo:
 
-See also [Micropython + LittlevGL](https://blog.littlevgl.com/2019-02-20/micropython-bindings) blog post.
-For questions and discussions - please use the forum: https://forum.lvgl.io/c/micropython
+- Integrated microByte port as a C module. This integration provides native screen, storage and controls ussage, using directly the microPython calls. **Not necessary to add new modules.**
+- Integration of Stage library to create simple games with microPython. This library was developed by [deshipu](https://github.com/python-ugame/micropython-stage)
+- Integration of LVGL graphic user interface library with the microByte's port, avoiding to configure and initalize the screen.
 
-Original micropython README: https://github.com/micropython/micropython/blob/master/README.md
+In the next list of contents you can see some tutorials and important ussage information:
 
-## Build Instructions
+- Important notice.
+- Build & flash the binary.
+    - Prepare the workspace
+    - Build the firmware.
+    - Flash it!
+- Tutorials.
+    - Previous considerations.
+    - Basic ussage.
+    - LVGL
+    - Stage Game Library
 
-1. `sudo apt-get install build-essential libreadline-dev libffi-dev git pkg-config libsdl2-2.0-0 libsdl2-dev python3.8`  
-Python 3 is required, but you can install some other version of python3 instead of 3.8, if needed.
-2. `git clone --recurse-submodules https://github.com/littlevgl/lv_micropython.git`
-3. `cd lv_micropython`
-4. `make -C mpy-cross`
-5. `make -C ports/unix/`
-6. `./ports/unix/micropython`
 
-### For ESP32 port
 
-Please set `ESPIDF` parameter for the esp-idf install dir.
-It needs to match Micropython expected esp-idf, otherwise a warning will be displayed (and build will probably fail)
-For more details refer to [Setting up the toolchain and ESP-IDF](https://github.com/littlevgl/lv_micropython/blob/master/ports/esp32/README.md#setting-up-the-toolchain-and-esp-idf)
+## Important notice
 
-When using IL9341 driver, the color depth and swap mode need to be set to match ILI9341. This can be done from the command line.
-Here is the command to build ESP32 + LittlevGL which is compatible with ILI9341 driver:
+This library was one of the main points of the microByte project, but unfortnately, some features was not possible to implement and maybe the usuability is not so good as it was intendend on the beginning. 
+The reason of that is basically hardware limitation, the microByte has a CH340G chip to handle the USB communications, this chip requires a connection with DC and RESET pin of the ESP32. So, when you connect the device to the PC and open the UART port, the PC sends a signal over USB which activate the DC and RESET signal giving as result a reset of the microcontroller. This is something good if you want to flash the microcontroller, but if you just want "interact" with UART, is not very good.
+
+So, we have the next limitations:
+- No boot menu to select if you want to execute an application or open REPL.
+- It was necessary a workaround to use the file system. Now it's working but you can't see for example on MU or other microPython interpreter.
+- It's necessary to run an script to use REPL or manually open the port (I.E. With Arduino IDE open the serial console).
+
+## Build the binary
+
+You can build the binary file on any O.S. but, I highly recommend to use **Ubuntu 18.04** or Windows with WSL and Ubuntu 18.04, install on it. Anyways this guide will be focus Ubuntu 18.04, I think that Ubuntu 20.04 should also work.
+
+[Windows WSL installation tutorial](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
+
+### Prepare the workspace.
+
+- Install the depencies:
+```
+sudo apt update
+```
 
 ```
+sudo apt-get install build-essential libreadline-dev libffi-dev git pkg-config libsdl2-2.0-0 libsdl2-dev python3.8 python-pip -y
+```
+
+- Download the repository:
+```
+git clone --recurse-submodules https://github.com/jfm92/mb_micropython.git
+```
+
+- Compile mpy-cross tool:
+```
+cd mb_micropython
 make -C mpy-cross
-make -C ports/esp32 LV_CFLAGS="-DLV_COLOR_DEPTH=16 -DLV_COLOR_16_SWAP=1" BOARD=GENERIC_SPIRAM deploy
 ```
 
-Explanation about the paramters:
-- `LV_CFLAGS` are used to override color depth and swap mode, for ILI9341 compatibility.  
-  - `LV_COLOR_DEPTH=16` is needed if you plan to use the ILI9341 driver.
-  - `LV_COLOR_16_SWAP=1` is needed if you plan to use the [Pure Micropython Display Driver](https://blog.littlevgl.com/2019-08-05/micropython-pure-display-driver).
-- `BOARD` - I use WROVER board with SPIRAM. You can choose other boards from `ports/esp32/boards/` directory.
-- `deploy` - make command will create ESP32 port of Micropython, and will try to deploy it through USB-UART bridge.
-
-For more details please refer to [Micropython ESP32 README](https://github.com/micropython/micropython/blob/master/ports/esp32/README.md).
-
-### For JavaScript port
-
-Refer to the README of the `lvgl_javascript` branch: https://github.com/lvgl/lv_micropython/tree/lvgl_javascript#for-javascript-port
-
-## Super Simple Example
-
-First, LittlevGL needs to be imported and initialized
-
-```python
-import lvgl as lv
-lv.init()
+- Set-up ESP-IDF toolchain.
+```
+cd ports/microByte
+export ESPIDF=$HOME/src/github.com/espressif/esp-idf
+export MB_PATH="$(pwd)"
+mkdir -p $ESPIDF
+cd $ESPIDF
+git clone https://github.com/espressif/esp-idf.git $ESPIDF
+git checkout 9e70825d1e1cbf7988cf36981774300066580ea7
+git submodule update --init --recursive
 ```
 
-Then display driver and input driver needs to be registered.
-Refer to [Porting the library](https://docs.littlevgl.com/#Porting) for more information.
-Here is an example of registering SDL drivers on Micropython unix port:
-
-```python
-import SDL
-SDL.init()
-
-# Register SDL display driver.
-
-disp_buf1 = lv.disp_buf_t()
-buf1_1 = bytearray(480*10)
-disp_buf1.init(buf1_1, None, len(buf1_1)//4)
-disp_drv = lv.disp_drv_t()
-disp_drv.init()
-disp_drv.buffer = disp_buf1
-disp_drv.flush_cb = SDL.monitor_flush
-disp_drv.hor_res = 480
-disp_drv.ver_res = 320
-disp_drv.register()
-
-# Regsiter SDL mouse driver
-
-indev_drv = lv.indev_drv_t()
-indev_drv.init() 
-indev_drv.type = lv.INDEV_TYPE.POINTER;
-indev_drv.read_cb = SDL.mouse_read;
-indev_drv.register();
+- Install Python dependencies.
+```
+cd $MB_PATH
+pip install 'pyserial>=3.0'
+pip install 'pyparsing>=2.0.3,<2.4.0'
+sudo apt-get install python3-venv -y
+python3 -m venv build-venv
+source build-venv/bin/activate
+pip install --upgrade pip
+pip install -r $ESPIDF/requirements.txt
 ```
 
-Here is an alternative example, for registering ILI9341 drivers on Micropython ESP32 port:
+- IDF-Tool workaround.
 
-```python
-import lvgl as lv
-import lvesp32
+Sometimes there is an issue when you try to install the ESP-IDF on virtual enviorement with the "--user" flag, so you need to do a little modifcation.
 
-# Import ILI9341 driver and initialized it
+    - Go to `$ESPIDF/tools`
+    - Open `idf_tools.py`
+    - Go to the line 1157 and delete '--user'
 
-from ili9341 import ili9341
-disp = ili9341()
-
-# Import XPT2046 driver and initalize it
-
-from xpt2046 import xpt2046
-touch = xpt2046()
+It should look like this:
+```
+subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'virtualenv'],
+                                  stdout=sys.stdout, stderr=sys.stderr)
 ```
 
-By default, both ILI9341 and XPT2046 are initialized on the same SPI bus with the following parameters:
+- Install ESP-IDF.
 
-- ILI9341: `miso=5, mosi=18, clk=19, cs=13, dc=12, rst=4, power=14, backlight=15, spihost=esp.HSPI_HOST, mhz=40, factor=4, hybrid=True`
-- XPT2046: `cs=25, spihost=esp.HSPI_HOST, mhz=5, max_cmds=16, cal_x0 = 3783, cal_y0 = 3948, cal_x1 = 242, cal_y1 = 423, transpose = True, samples = 3`
-
-You can change any of these parameters on ili9341/xpt2046 constructor.
-You can also initalize them on different SPI buses if you want, by providing miso/mosi/clk parameters. Set them to -1 to use existing (initialized) spihost bus.
-
-Now you can create the GUI itself:
-
-```python
-
-# Create a screen with a button and a label
-
-scr = lv.obj()
-btn = lv.btn(scr)
-btn.align(lv.scr_act(), lv.ALIGN.CENTER, 0, 0)
-label = lv.label(btn)
-label.set_text("Hello World!")
-
-# Load the screen
-
-lv.scr_load(scr)
+```
+cd $ESPIDF
+./install.sh
 
 ```
 
-## More information
+- Source the export script.
 
-More info about LittlevGL: 
-- Website https://littlevgl.com
-- GitHub: https://github.com/littlevgl/lvgl
+```
+cd $MB_PATH
+source $ESPIDF/export.sh 
+```
 
-More info about lvgl Micropython bindings:
-- https://github.com/littlevgl/lv_bindings/blob/master/README.md
+### Build the firmware
 
-Discussions about the Microptyhon binding: https://github.com/littlevgl/lvgl/issues/557
+Now it's everything ready to work with microPython, no execute the next commands:
+```
+cd $MB_PATH/../..
+ make -C ports/microByte BOARD=GENERIC_SPIRAM
+```
 
-More info about the unix port: https://github.com/micropython/micropython/wiki/Getting-Started#debian-ubuntu-mint-and-variants
+If everything goes fine it should return something like this:
+```bash
+LINK build-GENERIC_SPIRAM/application.elf
+   text    data     bss     dec     hex filename
+1624104  605480   41300 2270884  22a6a4 build-GENERIC_SPIRAM/application.elf
+Create build-GENERIC_SPIRAM/application.bin
+esptool.py v2.8
+Create build-GENERIC_SPIRAM/firmware.bin
+bootloader     23024
+partitions      3072
+application  2229712
+total        2295248
+```
 
-The MicroPython project
-=======================
-<p align="center">
-  <img src="https://raw.githubusercontent.com/micropython/micropython/master/logo/upython-with-micro.jpg" alt="MicroPython Logo"/>
-</p>
+### Flash it!
 
-This is the MicroPython project, which aims to put an implementation
-of Python 3.x on microcontrollers and small embedded systems.
-You can find the official website at [micropython.org](http://www.micropython.org).
-
-WARNING: this project is in beta stage and is subject to changes of the
-code-base, including project-wide name changes and API changes.
-
-MicroPython implements the entire Python 3.4 syntax (including exceptions,
-`with`, `yield from`, etc., and additionally `async`/`await` keywords from
-Python 3.5). The following core datatypes are provided: `str` (including
-basic Unicode support), `bytes`, `bytearray`, `tuple`, `list`, `dict`, `set`,
-`frozenset`, `array.array`, `collections.namedtuple`, classes and instances.
-Builtin modules include `sys`, `time`, and `struct`, etc. Select ports have
-support for `_thread` module (multithreading). Note that only a subset of
-Python 3 functionality is implemented for the data types and modules.
-
-MicroPython can execute scripts in textual source form or from precompiled
-bytecode, in both cases either from an on-device filesystem or "frozen" into
-the MicroPython executable.
-
-See the repository http://github.com/micropython/pyboard for the MicroPython
-board (PyBoard), the officially supported reference electronic circuit board.
-
-Major components in this repository:
-- py/ -- the core Python implementation, including compiler, runtime, and
-  core library.
-- mpy-cross/ -- the MicroPython cross-compiler which is used to turn scripts
-  into precompiled bytecode.
-- ports/unix/ -- a version of MicroPython that runs on Unix.
-- ports/stm32/ -- a version of MicroPython that runs on the PyBoard and similar
-  STM32 boards (using ST's Cube HAL drivers).
-- ports/minimal/ -- a minimal MicroPython port. Start with this if you want
-  to port MicroPython to another microcontroller.
-- tests/ -- test framework and test scripts.
-- docs/ -- user documentation in Sphinx reStructuredText format. Rendered
-  HTML documentation is available at http://docs.micropython.org.
-
-Additional components:
-- ports/bare-arm/ -- a bare minimum version of MicroPython for ARM MCUs. Used
-  mostly to control code size.
-- ports/teensy/ -- a version of MicroPython that runs on the Teensy 3.1
-  (preliminary but functional).
-- ports/pic16bit/ -- a version of MicroPython for 16-bit PIC microcontrollers.
-- ports/cc3200/ -- a version of MicroPython that runs on the CC3200 from TI.
-- ports/esp8266/ -- a version of MicroPython that runs on Espressif's ESP8266 SoC.
-- ports/esp32/ -- a version of MicroPython that runs on Espressif's ESP32 SoC.
-- ports/nrf/ -- a version of MicroPython that runs on Nordic's nRF51 and nRF52 MCUs.
-- extmod/ -- additional (non-core) modules implemented in C.
-- tools/ -- various tools, including the pyboard.py module.
-- examples/ -- a few example Python scripts.
-
-The subdirectories above may include READMEs with additional info.
-
-"make" is used to build the components, or "gmake" on BSD-based systems.
-You will also need bash, gcc, and Python 3.3+ available as the command `python3`
-(if your system only has Python 2.7 then invoke make with the additional option
-`PYTHON=python2`).
-
-The MicroPython cross-compiler, mpy-cross
------------------------------------------
-
-Most ports require the MicroPython cross-compiler to be built first.  This
-program, called mpy-cross, is used to pre-compile Python scripts to .mpy
-files which can then be included (frozen) into the firmware/executable for
-a port.  To build mpy-cross use:
-
-    $ cd mpy-cross
-    $ make
-
-The Unix version
-----------------
-
-The "unix" port requires a standard Unix environment with gcc and GNU make.
-x86 and x64 architectures are supported (i.e. x86 32- and 64-bit), as well
-as ARM and MIPS. Making full-featured port to another architecture requires
-writing some assembly code for the exception handling and garbage collection.
-Alternatively, fallback implementation based on setjmp/longjmp can be used.
-
-To build (see section below for required dependencies):
-
-    $ cd ports/unix
-    $ make submodules
-    $ make
-
-Then to give it a try:
-
-    $ ./micropython
-    >>> list(5 * x + y for x in range(10) for y in [4, 2, 1])
-
-Use `CTRL-D` (i.e. EOF) to exit the shell.
-Learn about command-line options (in particular, how to increase heap size
-which may be needed for larger applications):
-
-    $ ./micropython -h
-
-Run complete testsuite:
-
-    $ make test
-
-Unix version comes with a builtin package manager called upip, e.g.:
-
-    $ ./micropython -m upip install micropython-pystone
-    $ ./micropython -m pystone
-
-Browse available modules on
-[PyPI](https://pypi.python.org/pypi?%3Aaction=search&term=micropython).
-Standard library modules come from
-[micropython-lib](https://github.com/micropython/micropython-lib) project.
-
-External dependencies
----------------------
-
-Building MicroPython ports may require some dependencies installed.
-
-For Unix port, `libffi` library and `pkg-config` tool are required. On
-Debian/Ubuntu/Mint derivative Linux distros, install `build-essential`
-(includes toolchain and make), `libffi-dev`, and `pkg-config` packages.
-
-Other dependencies can be built together with MicroPython. This may
-be required to enable extra features or capabilities, and in recent
-versions of MicroPython, these may be enabled by default. To build
-these additional dependencies, in the port directory you're
-interested in (e.g. `ports/unix/`) first execute:
-
-    $ make submodules
-
-This will fetch all the relevant git submodules (sub repositories) that
-the port needs.  Use the same command to get the latest versions of
-submodules as they are updated from time to time. After that execute:
-
-    $ make deplibs
-
-This will build all available dependencies (regardless whether they
-are used or not). If you intend to build MicroPython with additional
-options (like cross-compiling), the same set of options should be passed
-to `make deplibs`. To actually enable/disable use of dependencies, edit
-`ports/unix/mpconfigport.mk` file, which has inline descriptions of the options.
-For example, to build SSL module (required for `upip` tool described above,
-and so enabled by default), `MICROPY_PY_USSL` should be set to 1.
-
-For some ports, building required dependences is transparent, and happens
-automatically.  But they still need to be fetched with the `make submodules`
-command.
-
-The STM32 version
------------------
-
-The "stm32" port requires an ARM compiler, arm-none-eabi-gcc, and associated
-bin-utils.  For those using Arch Linux, you need arm-none-eabi-binutils,
-arm-none-eabi-gcc and arm-none-eabi-newlib packages.  Otherwise, try here:
-https://launchpad.net/gcc-arm-embedded
-
-To build:
-
-    $ cd ports/stm32
-    $ make submodules
-    $ make
-
-You then need to get your board into DFU mode.  On the pyboard, connect the
-3V3 pin to the P1/DFU pin with a wire (on PYBv1.0 they are next to each other
-on the bottom left of the board, second row from the bottom).
-
-Then to flash the code via USB DFU to your device:
-
-    $ make deploy
-
-This will use the included `tools/pydfu.py` script.  If flashing the firmware
-does not work it may be because you don't have the correct permissions, and
-need to use `sudo make deploy`.
-See the README.md file in the ports/stm32/ directory for further details.
-
-Contributing
-------------
-
-MicroPython is an open-source project and welcomes contributions. To be
-productive, please be sure to follow the
-[Contributors' Guidelines](https://github.com/micropython/micropython/wiki/ContributorGuidelines)
-and the [Code Conventions](https://github.com/micropython/micropython/blob/master/CODECONVENTIONS.md).
-Note that MicroPython is licenced under the MIT license, and all contributions
-should follow this license.
+# WIP
