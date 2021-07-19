@@ -1,13 +1,13 @@
 # microPython for microByte
 
 
-This repository is a fork of microPython + LVGL repository. You can find the next improvments on this repo:
+This repository is a fork of the microPython + LVGL repository. You can find the next improvements on this repo:
 
-- Integrated microByte port as a C module. This integration provides native screen, storage and controls ussage, using directly the microPython calls. **Not necessary to add new modules.**
+- Integrated microByte port as a C module. This integration provides a native screen, storage, and controls usage, using directly the microPython calls. **Not necessary to add new modules.**
 - Integration of Stage library to create simple games with microPython. This library was developed by [deshipu](https://github.com/python-ugame/micropython-stage)
-- Integration of LVGL graphic user interface library with the microByte's port, avoiding to configure and initalize the screen.
+- Integration of LVGL graphic user interface library with the microByte's port, avoiding configure and initialize the screen.
 
-In the next list of contents you can see some tutorials and important ussage information:
+In the next list of contents you can see some tutorials and important usage information:
 
 - Important notice.
 - Build & flash the binary.
@@ -16,7 +16,7 @@ In the next list of contents you can see some tutorials and important ussage inf
     - Flash it!
 - Tutorials.
     - Previous considerations.
-    - Basic ussage.
+    - Getting started
     - LVGL
     - Stage Game Library
 
@@ -24,13 +24,13 @@ In the next list of contents you can see some tutorials and important ussage inf
 
 ## Important notice
 
-This library was one of the main points of the microByte project, but unfortnately, some features was not possible to implement and maybe the usuability is not so good as it was intendend on the beginning. 
-The reason of that is basically hardware limitation, the microByte has a CH340G chip to handle the USB communications, this chip requires a connection with DC and RESET pin of the ESP32. So, when you connect the device to the PC and open the UART port, the PC sends a signal over USB which activate the DC and RESET signal giving as result a reset of the microcontroller. This is something good if you want to flash the microcontroller, but if you just want "interact" with UART, is not very good.
+This library was one of the main points of the microByte project, but unfortunately, some features were not possible to implement, and maybe the usability is not so good as it was intended at the beginning. 
+The reason for that is a hardware limitation, the microByte has a CH340G chip to handle the USB communications, this chip requires a connection with DC and RESET pin of the ESP32. So, when you connect the device to the PC and open the UART port, the PC sends a signal over USB which activates the DC and RESET signal giving as result a reset of the microcontroller. This is something good if you want to flash the microcontroller, but if you just want to "interact" with UART, is not very good.
 
 So, we have the next limitations:
 - No boot menu to select if you want to execute an application or open REPL.
-- It was necessary a workaround to use the file system. Now it's working but you can't see for example on MU or other microPython interpreter.
-- It's necessary to run an script to use REPL or manually open the port (I.E. With Arduino IDE open the serial console).
+- It was necessary a workaround use the file system. Now it's working but you can't see for example on MU or another microPython interpreter.
+- It's necessary to run a script to use REPL or manually open the port (I.E. With Arduino IDE open the serial console).
 
 ## Build the binary
 
@@ -137,4 +137,180 @@ total        2295248
 
 ### Flash it!
 
-# WIP
+Connect your microByte to the PC and check which serial port was assigned. You can modify the port doing the next:
+
+- Open `ports/microByte/Makefile`
+- On the line 45, you will find `PORT ?= /dev/ttyS3`
+- Change the serial port to your serial port.
+
+Once you've set your serail port, on the root folder, execute the next command:
+```
+ make -C ports/microByte BOARD=GENERIC_SPIRAM deploy
+```
+
+This should return something like this:
+```
+Writing build-GENERIC_SPIRAM/firmware.bin to the board
+esptool.py v2.8
+Serial port /dev/ttyS3
+Connecting....
+Chip is ESP32D0WDQ5 (revision 3)
+Features: WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+Crystal is 40MHz
+MAC: c4:dd:57:92:cb:94
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 2000000
+Changed.
+Configuring flash size...
+Auto-detected Flash size: 16MB
+Compressed 2291152 bytes to 1366321...
+Wrote 2291152 bytes (1366321 compressed) at 0x00001000 in 22.4 seconds (effective 817.1 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+```
+
+That's all folks!
+
+## Tutorials
+
+### Previous considerations
+
+You can use any microPython "IDE" or even just use a serial connection with a simple terminal like puTTY, but in most case you'll find this issue:
+
+```
+rst:0x1 (POWERON_RESET),boot:0x3 (DOWNLOAD_BOOT(UART0/UART1/SDIO_REI_REO_V2))
+waiting for download
+```
+
+The device is on boot mode and you can't use the UART peripheral. In this case, you just need to execute the next:
+
+- Find the serial number of the microByte.
+- Go to the mb_micropython folder.
+- Execute the next command: `python3 mb_reset.py <microByte_serial_port>`
+
+### Getting started
+
+As a first step, I recommend getting familiar with microPython. This first point will be a very basic one, you can find tons of information on the Internet.
+
+- Download an editor, I recommend [MU](https://codewith.mu/en/). It's minimalistic but very useful.
+
+- Connect the device and push `REPL` button. (I recommend checking the previous point because maybe that issue will raise)
+
+- This should open a console and return something like this:
+
+```
+MicroPython v1.14-458-g44c31c66f-dirty on 2021-07-18; ESP32 module (spiram) with ESP32
+Type "help()" for more information.
+>>> 
+```
+- You can write commands on the console or write a script on the edit screen on the top and send it by pushing the execute button.
+
+- To finalize lets create a simple script which clean the screen
+
+```python
+import machine
+
+display = machine.display()
+display.clear()
+
+```
+
+After this the display should be white.
+
+You can find a good quantity of microPython tutorials and documentations [here](https://docs.micropython.org/en/latest/esp32/quickref.html#)
+
+### Create games with Stage library
+
+This is tutorial is to execute a demo, the code is commented on and gives more details.
+
+- First, we need to copy the file [demo.bmp]() to the root folder of the microSD card.
+
+- Then on your favorite editor execute the next code:
+
+```python
+import machine
+import stage
+
+#Initialize screen
+display = machine.display()
+#Initialize the buttons
+btn_right = machine.gamepad(3)
+btn_left = machine.gamepad(1)
+btn_a = machine.gamepad(9)
+
+#Load sprites file
+bank = stage.Bank.from_bmp16("ball3.bmp")
+
+#Create the background
+background = stage.Grid(bank,15,15)
+#Paint the sky
+y=0
+while y<13:
+    x = 0
+    while x<15:
+        background.tile(x,y,6)
+        x += 1
+    y += 1
+
+#Paint some clouds
+background.tile(2,4,5)
+background.tile(5,6,5)
+background.tile(8,5,5)
+background.tile(11,7,5)
+
+#Create ball sprite
+ball = stage.Sprite(bank, 1, 100, 192)
+
+#Initialize game engine with a limit of 60FPS
+game = stage.Stage(display, 60)
+
+#Set the layers and render all the screen
+game.layers = [ball] + [background] 
+game.render_block()
+
+dx = 5 # Increment on x axis of the ball
+dy = -10 #Increment on y axis of the ball
+while True:
+    if btn_right.pressed(): #If right button was pressed move to right
+        if ( 0 < ball.x < 220):
+            dx = 5
+            ball.set_frame(ball.frame % 4 + 1)
+            ball.move(ball.x + dx, ball.y)
+    if btn_left.pressed(): #If left button was pressed move to left
+        if( 0 < ball.x < 220):
+            dx = -5
+            ball.set_frame(ball.frame % 4 + 1)
+            ball.move(ball.x + dx, ball.y)
+    if btn_a.pressed(): #If button a was pressed, the ball jump creating an animation
+        while ball.y > 130:
+            ball.set_frame(ball.frame % 4 + 1)
+            ball.move(ball.x, ball.y+dy)
+            game.render_block()
+        while ball.y < 188:
+            dy += 1
+            ball.set_frame(ball.frame % 4 + 1)
+            ball.move(ball.x, ball.y + dy)
+            game.render_block()
+        dy = -10
+
+    ball.update()
+    game.render_block()
+    game.tick()
+```
+
+This will execute a simple demo where you can move a ball over the screen. On that demo, you can see how to load a background, sprites, and render it.
+
+To create your sprites, it's very important to use GIMP and save them as a BMP file with 16 depth colors. I wasn't able to make it work with other programs.
+Another important point to know is that only 8bit colors will work.
+
+You can find more information on the official wiki of the Stage project, which is not very deep but has some interesting info:
+[Stage wiki](https://circuitpython-stage.readthedocs.io/en/latest/README.html)
+
+
+### LVGL
+
+It's necessary to rethink a little bit how it's implement. We can considerer still.. a work in progress. 
