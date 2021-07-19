@@ -99,7 +99,7 @@ static void GUI_task(void *arg){
     ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, LV_TICK_PERIOD_MS * 1000)); // LV_TICK_PERIOD_MS expressed as microseconds
 
     
-    GUI_frontend_main();
+    //GUI_frontend_main();
     while(1){
         lv_task_handler();
     }
